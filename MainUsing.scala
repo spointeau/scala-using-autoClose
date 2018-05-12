@@ -63,32 +63,9 @@ object arm {
 
     def use[R](body: T => R): R = use(canThrow=true,body)
 
-    def use[R](canThrow: Boolean = true, body: T => R): R = {
-
-      var innerException: Option[Throwable] = Option.empty
-
-      try {
-        body(x)
-      }
-      catch {
-        case e =>
-          innerException = Some(e)
-          throw e
-      }
-      finally {
-        try {
-          x.close()
-        }
-        catch {
-          case e: Throwable =>
-            if (innerException.nonEmpty) {
-              innerException.get.addSuppressed(e)
-            }
-            else {
-              if (canThrow) throw e
-            }
-        }
-      }
+    def use[R](canThrow: Boolean = true, body: T => R): R = using { implicit scope =>
+      autoClose(canThrow = canThrow)
+      body(x)
     }
   }
 }
