@@ -60,6 +60,36 @@ object arm {
       in.acquire(x,canThrow,log)
       x
     }
+
+    def use[R](body: T => R): R = use(canThrow=true,body)
+
+    def use[R](canThrow: Boolean = true, body: T => R): R = {
+
+      var innerException: Option[Throwable] = Option.empty
+
+      try {
+        body(x)
+      }
+      catch {
+        case e =>
+          innerException = Some(e)
+          throw e
+      }
+      finally {
+        try {
+          x.close()
+        }
+        catch {
+          case e: Throwable =>
+            if (innerException.nonEmpty) {
+              innerException.get.addSuppressed(e)
+            }
+            else {
+              if (canThrow) throw e
+            }
+        }
+      }
+    }
   }
 }
 
@@ -81,6 +111,7 @@ object MainUsing extends App {
 
   System.setErr(System.out)
 
+  // using - autoClose
   try using { implicit scope =>
     val t = new TestToClose("test1").autoClose()
     val t2 = new TestToClose("test2").autoClose(canThrow = false, log = true)
@@ -92,4 +123,19 @@ object MainUsing extends App {
       e.printStackTrace()
   }
 
+  // using use - similar to kotlin
+  try {
+    new TestToClose("test3").use (canThrow=false, { r =>
+      println(r.name)
+    })
+
+    new TestToClose("test4").use { r =>
+      println(r.name)
+    }
+  }
+  catch {
+    case e: Exception =>
+      e.printStackTrace()
+  }
+  
 }
